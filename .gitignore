@@ -1,0 +1,20 @@
+# Created by .ignore support plugin (hsz.mobi)
+.idea/
+
+# Data set
+*.csv
+*.h5
+*.xlsx
+
+# Result file
+*.png
+
+# Virtual environment
+venv
+
+.DS_Store
+__pycache__/
+data/.DS_Store
+prediction/.DS_Store
+result/.DS_Store
+/simulation_method/FDM/OSM.py
