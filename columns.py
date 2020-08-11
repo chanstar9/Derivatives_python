@@ -48,8 +48,8 @@ KS200_DIV = 'kospi200_dividend_rate'
 Q = 'dividend_rate'
 VOL = 'volatility'
 SPX = 'S&P500'
-EUROSTOXX = 'eurostoxx'
-INDICES = [KS200, SPX, EUROSTOXX]
+SX5E = 'eurostoxx'
+INDICES = [KS200, SPX, SX5E]
 
 # interest rate
 R = 'interest_rate'

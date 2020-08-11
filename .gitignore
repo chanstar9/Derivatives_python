@@ -5,6 +5,7 @@
 *.csv
 *.h5
 *.xlsx
+*.docx
 
 # Result file
 *.png
