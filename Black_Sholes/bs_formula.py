@@ -5,9 +5,6 @@
 """
 from scipy.stats import norm
 import numpy as np
-import pandas as pd
-import statsmodels.api as sm
-from sklearn.linear_model import LinearRegression
 
 
 def d_1(s, k, tow, r, q, vol):
