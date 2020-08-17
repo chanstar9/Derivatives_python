@@ -80,10 +80,9 @@ class ELS:
         dt = T / Nt
         u_NKI = np.zeros(tuple(N + 2))
         u_KI = deepcopy(u_NKI)
-        step = self.initial_underlyings * 0.01
-        h = step
-        max_underlyings = step * (N + 1)
-        min_underlyings = step * 0
+        h = self.initial_underlyings * 0.01
+        max_underlyings = h * (N + 1)
+        min_underlyings = h * 0
         prices = np.array(
             [np.linspace(min_underlyings[0], max_underlyings[0], N[0] + 2),
              np.linspace(min_underlyings[1], max_underlyings[1], N[1] + 2),
@@ -116,9 +115,11 @@ class ELS:
 
         # while iteration < Nt
         for _date in tqdm(list(reversed(self.dates))):
-            u_NKI = get_payoff(u=u_NKI, redemption_dates=redemption_dates, coupon=coupon, F=F, _date=_date,
+            u_NKI = get_payoff(u=u_NKI, redemption_dates=redemption_dates, coupon=coupon, F=F, K=K,
+                               initial_underlyings=initial_underlyings, _date=_date,
                                a=a, b=b, c=c, h=h, dt=dt, prices=prices, vols=vols, corr=corr, N=N)
-            u_KI = get_payoff(u=u_KI, redemption_dates=redemption_dates, coupon=coupon, F=F, _date=_date,
+            u_KI = get_payoff(u=u_KI, redemption_dates=redemption_dates, coupon=coupon, F=F, K=K,
+                              initial_underlyings=initial_underlyings, _date=_date,
                               a=a, b=b, c=c, h=h, dt=dt, prices=prices, vols=vols, corr=corr, N=N)
 
             # Early redemption
