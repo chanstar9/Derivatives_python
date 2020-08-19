@@ -53,7 +53,7 @@ def TDMAsolver(aa, bb, cc, dd, direction):
     dd = deepcopy(dd)
     mat = np.diag(bb) + np.diag(aa, k=-1) + np.diag(cc, k=1)
     mat = np.linalg.inv(mat)
-    mat = np.repeat(mat[:, :, np.newaxis], len(dd), axis=2)     # dd[0]??
+    mat = np.repeat(mat[:, :, np.newaxis], len(dd), axis=2)  # dd[0]??
     mat = np.repeat(mat[:, :, :, np.newaxis], len(dd), axis=3)
     if direction == 1:
         dd = np.swapaxes(mat, 0, 1)
@@ -68,25 +68,25 @@ def boundary_cond(u, N, redemption_dates, coupon, F, K, initial_underlyings, _da
     u[0, 1:N[1] + 1, 1:N[2] + 1] = 2 * u[1, 1:N[1] + 1, 1:N[2] + 1] - u[2, 1:N[1] + 1, 1:N[2] + 1]
     u[1:N[0] + 1, 0, 1:N[2] + 1] = 2 * u[1:N[0] + 1, 1, 1:N[2] + 1] - u[1:N[0] + 1, 2, 1:N[2] + 1]
     u[1:N[0] + 1, 1:N[1] + 1, 0] = 2 * u[1:N[0] + 1, 1:N[1] + 1, 1] - u[1:N[0] + 1, 1:N[1] + 1, 2]
-    u[N[0] + 2, 1:N[1] + 1, 1:N[2] + 1] = 2 * u[N[0] + 1, 1:N[1] + 1, 1:N[2] + 1] - u[N[0], 1:N[1] + 1, 1:N[2] + 1]
-    u[1:N[0] + 1, N[1] + 2, 1:N[2] + 1] = 2 * u[1:N[0] + 1, N[1] + 1, 1:N[2] + 1] - u[1:N[0] + 1, N[1], 1:N[2] + 1]
-    u[1:N[0] + 1, 1:N[1] + 1, N[2] + 2] = 2 * u[1:N[0] + 1, 1:N[1] + 1, N[2] + 1] - u[1:N[0] + 1, 1:N[1] + 1, N[2]]
+    u[N[0] + 1, 1:N[1] + 1, 1:N[2] + 1] = 2 * u[N[0], 1:N[1] + 1, 1:N[2] + 1] - u[N[0] - 1, 1:N[1] + 1, 1:N[2] + 1]
+    u[1:N[0] + 1, N[1] + 1, 1:N[2] + 1] = 2 * u[1:N[0] + 1, N[1], 1:N[2] + 1] - u[1:N[0] + 1, N[1] - 1, 1:N[2] + 1]
+    u[1:N[0] + 1, 1:N[1] + 1, N[2] + 1] = 2 * u[1:N[0] + 1, 1:N[1] + 1, N[2]] - u[1:N[0] + 1, 1:N[1] + 1, N[2] - 1]
     # 12 lines
-    u[1:N[0] + 1, 0, 0], u[0, 1:N[1] + 1, 0], u[0, 0, 1:N[2] + 1], u[N[0] + 2, 1:N[1] + 1:0] = 0, 0, 0, 0
-    u[N[0] + 2, 0, 1:N[2] + 1], u[1:N[0] + 1, N[1] + 2, 0], u[0, N[1] + 2, 1:N[2] + 1] = 0, 0, 0
-    u[1:N[0] + 1, 0, N[2] + 2], u[0, 1:N[1] + 1, N[2] + 2] = 0, 0
-    u[1:N[0] + 1, N[1] + 2, N[2] + 2] = list(
+    u[1:N[0] + 1, 0, 0], u[0, 1:N[1] + 1, 0], u[0, 0, 1:N[2] + 1], u[N[0] + 1, 1:N[1] + 1, 0] = 0, 0, 0, 0
+    u[N[0] + 1, 0, 1:N[2] + 1], u[1:N[0] + 1, N[1] + 1, 0], u[0, N[1] + 1, 1:N[2] + 1] = 0, 0, 0
+    u[1:N[0] + 1, 0, N[2] + 1], u[0, 1:N[1] + 1, N[2] + 1] = 0, 0
+    u[1:N[0] + 1, N[1] + 1, N[2] + 1] = list(
         map(lambda x: (1 + coupon[(redemption_dates[redemption_dates >= _date]).min()]) * F
-        if x >= K[_date] * initial_underlyings[0] else 0, prices[0, 1:N[0]]))
-    u[N[0] + 2, 1:N[1] + 1, N[2] + 2] = list(
+        if x >= K[_date] * initial_underlyings[0] else 0, prices[0, 1:N[0] + 1]))
+    u[N[0] + 1, 1:N[1] + 1, N[2] + 1] = list(
         map(lambda y: (1 + coupon[(redemption_dates[redemption_dates >= _date]).min()]) * F
-        if y >= K[_date] * initial_underlyings[1] else 0, prices[1, 1:N[1]]))
-    u[N[0] + 2, N[1] + 2, 1:N[2] + 1] = list(
+        if y >= K[_date] * initial_underlyings[1] else 0, prices[1, 1:N[1] + 1]))
+    u[N[0] + 1, N[1] + 1, 1:N[2] + 1] = list(
         map(lambda z: (1 + coupon[(redemption_dates[redemption_dates >= _date]).min()]) * F
-        if z >= K[_date] * initial_underlyings[2] else 0, prices[2, 1:N[2]]))
+        if z >= K[_date] * initial_underlyings[2] else 0, prices[2, 1:N[2] + 1]))
     # 8 edges
-    u[0, 0, 0], u[N[0] + 2, 0, 0], u[0, N[1] + 2, 0], u[0, 0, N[2] + 2], u[N[0] + 2, N[1] + 2, 0], u[
-        0, N[1] + 2, N[2] + 2], u[N[0] + 2, 0, N[2] + 2] = 0, 0, 0, 0, 0, 0, 0
+    u[0, 0, 0], u[N[0] + 1, 0, 0], u[0, N[1] + 1, 0], u[0, 0, N[2] + 1], u[N[0] + 1, N[1] + 1, 0], u[
+        0, N[1] + 1, N[2] + 1], u[N[0] + 1, 0, N[2] + 1] = 0, 0, 0, 0, 0, 0, 0
     u[N[0] + 1, N[1] + 1, N[2] + 1] = (1 + coupon[(redemption_dates[redemption_dates >= _date]).min()]) * F
     return u
 
