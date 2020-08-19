@@ -49,21 +49,18 @@ def get_d(u, N, h, dt, prices, vols, corr):
             / dt) * u[1:N[0] + 1, 1:N[1] + 1, 1:N[2] + 1]
 
 
-def TDMAsolver(aa, bb, cc, dd):
-    nf = len(dd[0])  # number of edivuations
-    acc, bcc, ccc, dcc = map(np.array, (aa, bb, cc, dd))  # copy the array
-    for it in range(1, nf):
-        mc = acc[it - 1] / bcc[it - 1]
-        bcc[it] = bcc[it] - mc * ccc[it - 1]
-        dcc[:, it] = dcc[:, it] - mc * dcc[:, it - 1]
-
-    xcc = dcc
-    xcc[:, -1] = dcc[:, -1] / bcc[-1]
-
-    for il in reversed(range(0, nf - 1)):
-        xcc[:, il] = (dcc[:, il] - ccc[il] * xcc[:, il + 1]) / bcc[il]
-
-    return xcc
+def TDMAsolver(aa, bb, cc, dd, direction):
+    dd = deepcopy(dd)
+    mat = np.diag(bb) + np.diag(aa, k=-1) + np.diag(cc, k=1)
+    mat = np.linalg.inv(mat)
+    mat = np.repeat(mat[:, :, np.newaxis], len(dd), axis=2)     # dd[0]??
+    mat = np.repeat(mat[:, :, :, np.newaxis], len(dd), axis=3)
+    if direction == 1:
+        dd = np.swapaxes(mat, 0, 1)
+    if direction == 2:
+        dd = np.swapaxes(mat, 0, 2)
+    u = np.einsum('ijkl, ijk -> ijk', mat, dd)
+    return u
 
 
 def boundary_cond(u, N, redemption_dates, coupon, F, K, initial_underlyings, _date, prices):
@@ -97,26 +94,23 @@ def boundary_cond(u, N, redemption_dates, coupon, F, K, initial_underlyings, _da
 def get_payoff(u, redemption_dates, coupon, F, K, initial_underlyings, _date, a, b, c, h, dt, prices, vols, corr, N):
     # x - direction
     d = get_d(u=u, N=N, h=h, dt=dt, prices=prices, vols=vols, corr=corr)
-    u[1:-1, 1:-1, 1:-1] = TDMAsolver(a[0][1:], b[0], c[0][:-1], d)
+    u[1:-1, 1:-1, 1:-1] = TDMAsolver(a[0][1:], b[0], c[0][:-1], d, direction=0)
 
     # Linear boundary condition
     u = boundary_cond(u=u, N=N, redemption_dates=redemption_dates, coupon=coupon, F=F, K=K,
                       initial_underlyings=initial_underlyings, _date=_date, prices=prices)
 
     # y - direction
-    d = np.zeros((N[0], N[1]))
-    for x in range(1, N[0] + 1):
-        d[x - 1] = np.fromiter((get_d(u, x, y, vols, corr) for y in range(1, N[1] + 1)), dtype=float)
-    u[1:-1, 1:N[1] + 1] = TDMAsolver(b[1][1:], a[1][:], c[1][:-1], d)
+    u[1:-1, 1:-1, 1:-1] = TDMAsolver(a[0][1:], b[0], c[0][:-1], d, direction=1)
 
     # Linear boundary condition
-    u[0, 1:N[1] + 1] = 2 * u[1, 1:N[1] + 1] - u[2, 1:N[1] + 1]
-    u[N[0] + 1, 1:N[1] + 1] = 2 * u[N[0], 1:N[1] + 1] - u[N[0] - 1, 1:N[1] + 1]
-    u[0:N[0] + 2, 0] = 2 * u[0:N[0] + 2, 1] - u[0:N[0] + 2, 2]
-    u[0:N[0] + 2, N[1] + 1] = 2 * u[0:N[0] + 2, N[1]] - u[0:N[0] + 2, N[1] - 1]
-    u[0, 0] = 0
-    u[N[0] + 1, N[1] + 1] = (1 + coupon[(redemption_dates[redemption_dates >= _date]).min()]) * F
+    u = boundary_cond(u=u, N=N, redemption_dates=redemption_dates, coupon=coupon, F=F, K=K,
+                      initial_underlyings=initial_underlyings, _date=_date, prices=prices)
 
     # z - direction
+    u[1:-1, 1:-1, 1:-1] = TDMAsolver(a[0][1:], b[0], c[0][:-1], d, direction=2)
 
+    # Linear boundary condition
+    u = boundary_cond(u=u, N=N, redemption_dates=redemption_dates, coupon=coupon, F=F, K=K,
+                      initial_underlyings=initial_underlyings, _date=_date, prices=prices)
     return u
