@@ -43,7 +43,7 @@ class ELS:
             s = GBM(s0=initial_underlyings, mean=mean, cov=vols * corr * vols.T, iter_num=iter_num, N=N, T=self.T,
                     div=div, seed=seed)
         if method == "FDM_3D":
-            price = self.FDM_pricing(N=N, eval_date=self.start_date, vols=vols, corr=corr)
+            price = self.FDM_pricing(N=N, eval_date=self.start_date, vols=vols, corr=corr, IRTS=r, q=div)
         return price
 
     def get_greek(self, mean, cov, iter_num, N, seed=None, r=None, div=None, exchange_rate=None):
@@ -126,13 +126,20 @@ class ELS:
             if _date in redemption_dates:
                 for x in range(N[0] + 2):
                     for y in range(N[1] + 2):
-                        if min(prices[0][x] / self.initial_underlyings[0],
-                               prices[1][y] / self.initial_underlyings[1],
-                               prices[2][y] / self.initial_underlyings[2]) >= K[_date] * F:
-                            u_NKI[x, y] = (1 + self.coupon[_date]) * F
-                            u_KI[x, y] = (1 + self.coupon[_date]) * F
+                        for z in range(N[2]+2):
+                            if min(prices[0][x] / self.initial_underlyings[0],
+                                   prices[1][y] / self.initial_underlyings[1],
+                                   prices[2][z] / self.initial_underlyings[2]) >= K[_date] * F:
+                                u_NKI[x, y, z] = (1 + self.coupon[_date]) * F
+                                u_KI[x, y, z] = (1 + self.coupon[_date]) * F
 
-        return
+            # adjust u_NKI
+            u_NKI[:int(100 * barrier_rate), :, :] = deepcopy(u_KI[:int(100 * barrier_rate), :, :])
+            u_NKI[int(100 * barrier_rate):, :int(100 * barrier_rate), :] = deepcopy(
+                u_KI[int(100 * barrier_rate):, :int(100 * barrier_rate), :])
+            u_NKI[int(100 * barrier_rate):, int(100 * barrier_rate):, :int(100 * barrier_rate)] = deepcopy(
+                u_KI[int(100 * barrier_rate):, int(100 * barrier_rate):, :int(100 * barrier_rate)])
+        return u_NKI[location_x - 1, location_y - 1, location_z - 1]
 
 
 if __name__ == '__main__':
@@ -157,7 +164,10 @@ if __name__ == '__main__':
     mean = np.array([0, 0, 0])
     vols = np.array([0.2417, 0.2703, 0.3013])
     corr = np.array([[1, 0.5504, 0.3432], [0.5504, 1, 0.7207], [0.3432, 0.7207, 1]])
+    r = np.array([0.01, 0.01, 0.01])
     q = np.array([0, 0, 0])
     IRTS = np.array([0.0078, 0.005, 0.0058])
-    ELS.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols, method="FDM_3D", N=N, )
+    p = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols, corr=corr, method="FDM_3D",
+                       N=N, r=r, div=q)
+    print(p)
     # target = 883.478
