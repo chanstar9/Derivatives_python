@@ -115,21 +115,19 @@ class ELS:
 
         # while iteration < Nt
         for _date in tqdm(list(reversed(self.dates))):
-            u_NKI = get_payoff(u=u_NKI, redemption_dates=redemption_dates, coupon=coupon, F=F, K=K,
-                               initial_underlyings=initial_underlyings, _date=_date,
-                               a=a, b=b, c=c, h=h, dt=dt, prices=prices, vols=vols, corr=corr, N=N)
-            u_KI = get_payoff(u=u_KI, redemption_dates=redemption_dates, coupon=coupon, F=F, K=K,
-                              initial_underlyings=initial_underlyings, _date=_date,
+            u_NKI = get_payoff(u=u_NKI, redemption_dates=self.redemption_dates, coupon=self.coupon, F=self.F,
+                               _date=_date, a=a, b=b, c=c, h=h, dt=dt, prices=prices, vols=vols, corr=corr, N=N)
+            u_KI = get_payoff(u=u_KI, redemption_dates=self.redemption_dates, coupon=self.coupon, F=self.F, _date=_date,
                               a=a, b=b, c=c, h=h, dt=dt, prices=prices, vols=vols, corr=corr, N=N)
 
             # Early redemption
             if _date in redemption_dates:
                 for x in range(N[0] + 2):
                     for y in range(N[1] + 2):
-                        for z in range(N[2]+2):
+                        for z in range(N[2] + 2):
                             if min(prices[0][x] / self.initial_underlyings[0],
                                    prices[1][y] / self.initial_underlyings[1],
-                                   prices[2][z] / self.initial_underlyings[2]) >= K[_date] * F:
+                                   prices[2][z] / self.initial_underlyings[2]) >= self.K[_date] * F:
                                 u_NKI[x, y, z] = (1 + self.coupon[_date]) * F
                                 u_KI[x, y, z] = (1 + self.coupon[_date]) * F
 
