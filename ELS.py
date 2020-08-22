@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 
 from numpy import array
+from multiprocessing import Pool
 
 from columns import *
 from stock_process import GBM
@@ -137,7 +138,7 @@ class ELS:
                 u_KI[int(100 * barrier_rate):, :int(100 * barrier_rate), :])
             u_NKI[int(100 * barrier_rate):, int(100 * barrier_rate):, :int(100 * barrier_rate)] = deepcopy(
                 u_KI[int(100 * barrier_rate):, int(100 * barrier_rate):, :int(100 * barrier_rate)])
-        return u_NKI[location_x - 1, location_y - 1, location_z - 1]
+        return u_NKI, u_NKI[location_x - 1, location_y - 1, location_z - 1]
 
 
 if __name__ == '__main__':
@@ -165,7 +166,7 @@ if __name__ == '__main__':
     r = np.array([0.01, 0.01, 0.01])
     q = np.array([0, 0, 0])
     IRTS = np.array([0.0078, 0.005, 0.0058])
-    p = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols, corr=corr, method="FDM_3D",
-                       N=N, r=r, div=q)
+    fdm, p = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols, corr=corr,
+                            method="FDM_3D", N=N, r=r, div=q)
     print(p)
     # target = 883.478
