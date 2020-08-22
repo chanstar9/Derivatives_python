@@ -29,8 +29,9 @@ def meetup_day(year, month, weekday, spec_weekday):
     return date(year, month, schedule_day)
 
 
-meetup_day(2014, 3, "Thursday", "2nd")
-meetup_day(2013, 6, "Wednesday", "4th")
-meetup_day(2013, 12, "Monday", "1st")
-meetup_day(2015, 5, "Tuesday", "teenth")
-meetup_day(2015, 4, "Thursday", "last")
+if __name__ == "__main__":
+    meetup_day(2014, 3, "Thursday", "2nd")
+    meetup_day(2013, 6, "Wednesday", "4th")
+    meetup_day(2013, 12, "Monday", "1st")
+    meetup_day(2015, 5, "Tuesday", "teenth")
+    meetup_day(2015, 4, "Thursday", "last")
