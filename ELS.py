@@ -12,7 +12,7 @@ from multiprocessing import Pool
 
 from columns import *
 from stock_process import GBM
-from simulation_method.FDM.cal_func import *
+from FDM.cal_func import *
 
 
 class ELS:
