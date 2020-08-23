@@ -6,9 +6,11 @@
 *.h5
 *.xlsx
 *.docx
+*.zip
 
 # Result file
 *.png
+*.pdf
 
 # Virtual environment
 venv
