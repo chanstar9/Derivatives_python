@@ -5,6 +5,8 @@
 *.csv
 *.h5
 *.xlsx
+*.xls
+*.xlsm
 *.docx
 *.zip
 
