@@ -9,21 +9,27 @@ import numpy as np
 from scipy.stats import norm
 
 
-def GBM(s0, mean, cov, iter_num, N, T, div=None, seed=None):
+def GBM(initial_underlyings, mean, vols, corr, iter_num, N, T, div=None, seed=None):
     """
     Geometric brownian motion
     :return: axis0=iter_num, axis1=time, axis2= # of underlying
     """
+    # setting params num
     if not seed:
         random.seed(seed)
+    if div is None:
+        div = np.array([0] * len(initial_underlyings))
     dt = T / N
+    cov = vols * corr * vols.reshape(1, len(vols)).T
 
-    # brownian motion 생성
-    e = np.random.multivariate_normal(mean=mean, cov=cov, size=(iter_num, N))
+    # generate brownian motion
+    e = np.random.multivariate_normal(mean=mean, cov=cov, size=(iter_num, N + 1))
     e[:, 0, :] = 0
 
     # GBM
-    s = s0 * np.exp((mean - div) * dt + np.diag(cov) * np.sqrt(dt) * e.cumsum(axis=1))
+    s = initial_underlyings * np.exp(
+        (mean - div - 0.5 * vols ** 2) * dt * np.ones(np.shape(e)) * np.arange(0, N + 1).reshape(1, N + 1, 1) +
+        vols * np.sqrt(dt) * e.cumsum(axis=1))
     return s
 
 
