@@ -23,13 +23,13 @@ def GBM(initial_underlyings, mean, vols, corr, iter_num, N, T, div=None, seed=No
     cov = vols * corr * vols.reshape(1, len(vols)).T
 
     # generate brownian motion
-    e = np.random.multivariate_normal(mean=mean, cov=cov, size=(iter_num, N))
+    e = np.random.multivariate_normal(mean=mean, cov=cov, size=(iter_num, N + 1))
     e[:, 0, :] = 0
 
     # GBM
     s = initial_underlyings * np.exp(
-        (mean - div - 0.5 * vols ** 2) * dt * np.ones(np.shape(e)) * np.arange(0, N).reshape(1, N, 1) + vols * np.sqrt(
-            dt) * e.cumsum(axis=1))
+        (mean - div - 0.5 * vols ** 2) * dt * np.ones(np.shape(e)) * np.arange(0, N + 1).reshape(1, N + 1, 1) +
+        vols * np.sqrt(dt) * e.cumsum(axis=1))
     return s
 
 
