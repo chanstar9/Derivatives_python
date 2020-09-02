@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 
 from numpy import array
+import pandas as pd
 from multiprocessing import Pool
 
 from columns import *
@@ -210,10 +211,10 @@ if __name__ == '__main__':
     # FDM
     N = np.array([200, 200, 200])
     mean = np.array([0, 0, 0])
-    vols = np.array([0.2417, 0.2703, 0.3013])
+    vols = np.array([0.35, 0.4, 0.45])
     corr = np.array([[1, 0.5504, 0.3432], [0.5504, 1, 0.7207], [0.3432, 0.7207, 1]])
     div = np.array([0.023, 0.0256, 0.0432])
-    IRTS = np.array([0.01, 0.01, 0.01])
+    IRTS = np.array([0.014, 0.01, 0.01])
     # fdm, p = self.get_price(mean=mean, vols=vols, corr=corr, method="FDM_3D", N=N, IRTS=IRTS, div=div)
     # print(p)
 

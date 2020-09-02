@@ -4,7 +4,7 @@
 :Date: 2019. 11. 26
 """
 import calendar
-from datetime import date
+from datetime import datetime
 
 
 def meetup_day(year, month, weekday, spec_weekday):
@@ -26,7 +26,7 @@ def meetup_day(year, month, weekday, spec_weekday):
         if schedule_day == calendar.weekday(year, month, index):
             schedule_day = index
 
-    return date(year, month, schedule_day)
+    return datetime(year, month, schedule_day)
 
 
 if __name__ == "__main__":
