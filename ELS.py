@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 
 from numpy import array
+from itertools import combinations_with_replacement
 import pandas as pd
 from multiprocessing import Pool
 
@@ -62,34 +63,109 @@ class ELS:
 
         return price
 
-    def get_greek(self, mean, cov, iter_num, N, seed=None, r=None, div=None, exchange_rate=None):
+    def get_greek(self, mean, vols, corr, iter_num, N, method, seed=None, r=None, div=None, exchange_rate=None):
         greeks = {
-            DELTA: self.get_delta(mean=mean, cov=cov, iter_num=iter_num, N=N, seed=seed, r=r, div=div,
-                                  exchange_rate=exchange_rate),
-            GAMMA: self.get_gamma(mean=mean, cov=cov, iter_num=iter_num, N=N, seed=seed, r=r, div=div,
-                                  exchange_rate=exchange_rate),
-            THETA: self.get_theta(mean=mean, cov=cov, iter_num=iter_num, N=N, seed=seed, r=r, div=div,
-                                  exchange_rate=exchange_rate),
-            VEGA: self.get_vega(mean=mean, cov=cov, iter_num=iter_num, N=N, seed=seed, r=r, div=div,
-                                exchange_rate=exchange_rate)
+            DELTA: self.get_delta(mean=mean, vols=vols, corr=corr, iter_num=iter_num, N=N, method=method, seed=seed,
+                                  r=r, div=div, exchange_rate=exchange_rate),
+            GAMMA: self.get_gamma(mean=mean, vols=vols, corr=corr, iter_num=iter_num, N=N, method=method, seed=seed,
+                                  r=r, div=div, exchange_rate=exchange_rate),
+            THETA: self.get_theta(mean=mean, vols=vols, corr=corr, iter_num=iter_num, N=N, method=method, seed=seed,
+                                  r=r, div=div, exchange_rate=exchange_rate),
+            VEGA: self.get_vega(mean=mean, vols=vols, corr=corr, iter_num=iter_num, N=N, method=method, seed=seed, r=r,
+                                div=div, exchange_rate=exchange_rate)
         }
         return greeks
 
-    def get_delta(self, mean, cov, iter_num, N, seed=None, r=None, div=None, exchange_rate=None):
-        pu = self.get_price(initial_underlyings=self.initial_underlyings * 1.01, mean=mean, vols=vols,
-                            iter_num=iter_num,
-                            N=N, seed=seed, IRTS=r, div=div, exchange_rate=exchange_rate)
-        pd = self.get_price(initial_underlyings=self.initial_underlyings * 0.99, mean=mean, vols=cov, iter_num=iter_num,
-                            N=N, seed=seed, IRTS=r, div=div, exchange_rate=exchange_rate)
-        return (pu - pd) / 0.02
+    def get_delta(self, mean, vols, corr, iter_num, N, method, seed=None, r=None, div=None, exchange_rate=None):
+        delta = []
+        for i in range(len(self.underlyings)):
+            if method == "GBM_MC":
+                # monte carlo
+                _arr = np.array([1, 1, 1])
+                _arr[i] = _arr[i] * 1.01
+                pu = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                    corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r,
+                                    div=div, exchange_rate=exchange_rate)
+                _arr[i] = _arr[i] * 0.99 / 1.01
+                pd = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                    corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r,
+                                    div=div, exchange_rate=exchange_rate)
+                delta.append((pu - pd) / 0.02)
+        return dict(zip(self.underlyings, delta))
 
-    def get_gamma(self, mean, cov, iter_num, N, seed=None, r=None, div=None, exchange_rate=None):
-        return
+    def get_gamma(self, mean, vols, corr, iter_num, N, method, seed=None, r=None, div=None, exchange_rate=None):
+        # monte carlo의 경우 gamma 값이 이상함...
+        gamma = []
+        permu = list(combinations_with_replacement(self.underlyings, 2))
+        for i in permu:
+            if i[0] == i[1]:
+                # plain gamma
+                _location = self.underlyings.index(i[0])
+                p = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols,
+                                   corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r,
+                                   div=div, exchange_rate=exchange_rate)
+                _arr = np.array([1, 1, 1])
+                _arr[_location] = _arr[_location] * 1.01
+                pu = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                    corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r,
+                                    div=div, exchange_rate=exchange_rate)
+                _arr[_location] = _arr[_location] * 0.99 / 1.01
+                pd = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                    corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r,
+                                    div=div, exchange_rate=exchange_rate)
+                gamma.append((pu - 2 * p + pd) / (0.01 ** 2))
+            else:
+                # cross gamma
+                _location1 = self.underlyings.index(i[0])
+                _location2 = self.underlyings.index(i[1])
+                _arr = np.array([1, 1, 1])
+                _arr[_location1] = _arr[_location1] * 1.01
+                _arr[_location2] = _arr[_location2] * 1.01
+                puu = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                     corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed,
+                                     IRTS=r, div=div, exchange_rate=exchange_rate)
+                _arr[_location2] = _arr[_location2] * 0.99 / 1.01
+                pud = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                     corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed,
+                                     IRTS=r, div=div, exchange_rate=exchange_rate)
+                _arr[_location1] = _arr[_location1] * 0.99 / 1.01
+                pdd = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                     corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed,
+                                     IRTS=r, div=div, exchange_rate=exchange_rate)
+                _arr[_location1] = _arr[_location1] * 1.01 / 0.99
+                _arr[_location2] = _arr[_location2] * 1.01 / 0.99
+                pdu = self.get_price(initial_underlyings=self.initial_underlyings * _arr, mean=mean, vols=vols,
+                                     corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed,
+                                     IRTS=r, div=div, exchange_rate=exchange_rate)
+                gamma.append((puu - pud - pdu + pdd) / (0.01 ** 2))
+        return dict(zip(permu, gamma))
 
-    def get_vega(self, mean, cov, iter_num, N, seed=None, r=None, div=None, exchange_rate=None):
-        return
+    def get_vega(self, mean, vols, corr, iter_num, N, method, seed=None, r=None, div=None, exchange_rate=None):
+        vega = []
+        for i in range(len(self.underlyings)):
+            if method == "GBM_MC":
+                # monte carlo
+                _arr = np.array([1, 1, 1])
+                _arr[i] = _arr[i] * 1.0001
+                pu = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols * _arr,
+                                    corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r,
+                                    div=div, exchange_rate=exchange_rate)
+                _arr[i] = _arr[i] * 0.9999 / 1.0001
+                pd = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols * _arr,
+                                    corr=corr, method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r,
+                                    div=div, exchange_rate=exchange_rate)
+                vega.append((pu - pd) / 0.0002)
+        vega = dict(zip(self.underlyings, vega))
+        return vega
 
-    def get_theta(self, mean, cov, iter_num, N, seed=None, r=None, div=None, exchange_rate=None):
+    def get_theta(self, mean, vols, corr, iter_num, N, method, seed=None, r=None, div=None, exchange_rate=None):
+        # pu = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols, corr=corr,
+        #                     method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r, div=div,
+        #                     exchange_rate=exchange_rate)
+        # pd = self.get_price(initial_underlyings=self.initial_underlyings, mean=mean, vols=vols, corr=corr,
+        #                     method=method, N=N, eval_date=None, iter_num=iter_num, seed=seed, IRTS=r, div=div,
+        #                     exchange_rate=exchange_rate)
+
         return
 
     def FDM_pricing(self, N, eval_date, vols, corr, IRTS, div):
@@ -208,13 +284,14 @@ if __name__ == '__main__':
                structure=structure)
 
     # ELS pricing
-    # FDM
     N = np.array([200, 200, 200])
     mean = np.array([0, 0, 0])
     vols = np.array([0.35, 0.4, 0.45])
     corr = np.array([[1, 0.5504, 0.3432], [0.5504, 1, 0.7207], [0.3432, 0.7207, 1]])
     div = np.array([0.023, 0.0256, 0.0432])
     IRTS = np.array([0.014, 0.01, 0.01])
+
+    # FDM
     # fdm, p = self.get_price(mean=mean, vols=vols, corr=corr, method="FDM_3D", N=N, IRTS=IRTS, div=div)
     # print(p)
 
