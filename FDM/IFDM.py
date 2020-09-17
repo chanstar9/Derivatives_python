@@ -56,4 +56,3 @@ def TDMAsolver(a, b, c, d):
 # solve eq
 for t in range(1, Nt + 1):
     u[t, :] = TDMAsolver(b[1:], a, c[:-1], u[t - 1, :])
-
