@@ -53,8 +53,15 @@ INDICES = [KS200, SPX, SX5E]
 
 # interest rate
 R = 'interest_rate'
+QUOTE = 'quote'
 CD91 = 'cd91_rate'
 KO_ONE_YEAR_TREASURY_RATE = 'korea_1year_treasury_rate'
+DEPOSITS = 'Deposits'
+FRA = 'FRA'
+EURODOLLAR_FUTURES = 'Eurodollar_Futures'
+SWAP_RATE = 'Swap_Rate'
+BASIS_SWAP_RATE = 'Basis_Swap_Rate'
+TENOR = 'tenor'
 
 # input information
 COL = [S, K, TOW, R, Q, VOL, CLOSE_P, LONG_SHORT, CP]
