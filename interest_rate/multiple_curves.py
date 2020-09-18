@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import QuantLib as ql
 
+from trading_date.get_maturity import meetup_day
 from columns import *
 
 # data preprocess
@@ -24,6 +25,8 @@ LIBOR_products = pd.merge(LIBOR_products, swap, on='Timestamp', how='outer')
 LIBOR_products = pd.merge(LIBOR_products, basis, on='Timestamp', how='outer')
 LIBOR_products.set_index('Timestamp', inplace=True)
 LIBOR_products.sort_index(inplace=True)
+
+# product indexing
 multi_index = []
 IR_products = [DEPOSITS, FRA, EURODOLLAR_FUTURES, SWAP_RATE, BASIS_SWAP_RATE]
 pair = dict(zip(IR_products, [len(deposits.columns) - 1, len(fra.columns) - 1, len(eurodollar.columns) - 1,
@@ -53,6 +56,12 @@ deposit_maturities = [ql.Period(1, ql.Days), ql.Period(3, ql.Days), ql.Period(7,
 FRA_3L_maturities = [(1, 4), (2, 5), (3, 6), (4, 7), (5, 8), (6, 9), (7, 10), (8, 11), (9, 12), (12, 15), (15, 18),
                      (18, 21)]
 FRA_6L_maturities = [(1, 7), (2, 8), (3, 9), (4, 10), (5, 11), (6, 12), (9, 15), (12, 18), (18, 24)]
+
+month_pair = {'F': 1, 'G': 2, 'H': 3, 'J': 4, 'K': 5, 'M': 6, 'N': 7, 'Q': 8, 'U': 9, 'V': 10, 'X': 11, 'Z': 12}
+EURODOLLAR_maturities = dict(zip(eurodollar.columns[1:], pd.DataFrame(eurodollar.columns[1:]).apply(
+    lambda x: meetup_day(int('20' + x[0][-1] + x[0][-3]), month_pair[x[0][2]], "Wednesday", "3th", type='quantlib'),
+    axis=1).dropna().values))
+
 swap_1L_tenors = [ql.Period(2, ql.Years), ql.Period(3, ql.Years), ql.Period(4, ql.Years), ql.Period(5, ql.Years),
                   ql.Period(6, ql.Years), ql.Period(7, ql.Years), ql.Period(8, ql.Years), ql.Period(9, ql.Years),
                   ql.Period(10, ql.Years), ql.Period(12, ql.Years), ql.Period(15, ql.Years), ql.Period(20, ql.Years),
@@ -61,7 +70,7 @@ swap_3L_tenors = [ql.Period(1, ql.Years)] + swap_1L_tenors
 # swap_6L_tenors = deepcopy(swap_1L_tenors)
 
 # convention
-calendar = ql.UnitedStates()
+calendar_country = ql.UnitedStates()
 settlementDays = 2
 
 # make curves every day
@@ -76,7 +85,7 @@ for date in dates:
             _deposits.index = deposit_maturities
             _deposits[QUOTE] = _deposits.apply(lambda x: ql.SimpleQuote(x[date]), axis=1)
             depositHelpers = [
-                ql.DepositRateHelper(ql.QuoteHandle(_deposits.loc[mat][QUOTE]), mat, settlementDays, calendar,
+                ql.DepositRateHelper(ql.QuoteHandle(_deposits.loc[mat][QUOTE]), mat, settlementDays, calendar_country,
                                      ql.ModifiedFollowing, False, ql.Actual360()) for mat in deposit_maturities]
         if product == FRA:
             _fra = LIBOR_product.loc[product].reset_index()
@@ -87,17 +96,26 @@ for date in dates:
             _fra6L = dict(zip(FRA_6L_maturities,
                               _fra[_fra[TENOR] == 6].apply(lambda x: ql.SimpleQuote(x[date]), axis=1).to_list()))
             fra3L_Helpers = [
-                ql.FraRateHelper(ql.QuoteHandle(_fra3L[mat]), mat[0], mat[1], settlementDays, calendar,
+                ql.FraRateHelper(ql.QuoteHandle(_fra3L[mat]), mat[0], mat[1], settlementDays, calendar_country,
                                  ql.ModifiedFollowing, False, ql.Actual360()) for mat in FRA_3L_maturities]
             fra6L_Helpers = [
-                ql.FraRateHelper(ql.QuoteHandle(_fra6L[mat]), mat[0], mat[1], settlementDays, calendar,
+                ql.FraRateHelper(ql.QuoteHandle(_fra6L[mat]), mat[0], mat[1], settlementDays, calendar_country,
                                  ql.ModifiedFollowing, False, ql.Actual360()) for mat in FRA_6L_maturities]
         if product == EURODOLLAR_FUTURES:
-            _eurodollar = LIBOR_product.loc[product].reset_index()
-            # eurodollar1L =
+            _eurodollar = LIBOR_product.loc[product]
+            _eurodollar[MAT] = _eurodollar.apply(lambda x: EURODOLLAR_maturities[x.name], axis=1)
             dayCounter = ql.Thirty360()
-
-
+            convexityAdjustment = ql.QuoteHandle(ql.SimpleQuote(0.01))
+            lengthInMonths = 1
+            eurodollar1L_Helpers = [
+                ql.FuturesRateHelper(ql.QuoteHandle(ql.SimpleQuote(_eurodollar.loc[ric][date])),
+                                     _eurodollar.loc[ric][MAT], lengthInMonths, calendar_country, ql.ModifiedFollowing,
+                                     True, dayCounter, convexityAdjustment) for ric in _eurodollar.index if 'EM' in ric]
+            lengthInMonths = 3
+            eurodollar3L_Helpers = [
+                ql.FuturesRateHelper(ql.QuoteHandle(ql.SimpleQuote(_eurodollar.loc[ric][date])),
+                                     _eurodollar.loc[ric][MAT], lengthInMonths, calendar_country, ql.ModifiedFollowing,
+                                     True, dayCounter, convexityAdjustment) for ric in _eurodollar.index if 'ED' in ric]
         if product == SWAP_RATE:
             _swap = LIBOR_product.loc[product].reset_index()
             _swap1L = dict(zip(swap_1L_tenors,
@@ -113,12 +131,22 @@ for date in dates:
             fixedLegAdjustment = ql.Unadjusted
             fixedLegDayCounter = ql.Actual365Fixed()
             swap1L_Helpers = [
-                ql.SwapRateHelper(ql.QuoteHandle(_swap1L[tenor]), tenor, calendar, fixedLegFrequency,
+                ql.SwapRateHelper(ql.QuoteHandle(_swap1L[tenor]), tenor, calendar_country, fixedLegFrequency,
                                   fixedLegAdjustment, fixedLegDayCounter, ql.Euribor1M()) for tenor in swap_1L_tenors]
-            swap1L_Helpers = [
-                ql.SwapRateHelper(ql.QuoteHandle(_swap3L[tenor]), tenor, calendar, fixedLegFrequency,
+            swap3L_Helpers = [
+                ql.SwapRateHelper(ql.QuoteHandle(_swap3L[tenor]), tenor, calendar_country, fixedLegFrequency,
                                   fixedLegAdjustment, fixedLegDayCounter, ql.Euribor3M()) for tenor in swap_3L_tenors]
-            swap1L_Helpers = [
-                ql.SwapRateHelper(ql.QuoteHandle(_swap6L[tenor]), tenor, calendar, fixedLegFrequency,
+            swap6L_Helpers = [
+                ql.SwapRateHelper(ql.QuoteHandle(_swap6L[tenor]), tenor, calendar_country, fixedLegFrequency,
                                   fixedLegAdjustment, fixedLegDayCounter, ql.Euribor6M()) for tenor in swap_1L_tenors]
 
+    # term structure handles
+    discountTermStructure = ql.RelinkableYieldTermStructureHandle()
+    forecastTermStructure = ql.RelinkableYieldTermStructureHandle()
+
+    # term-structure construction
+    helpers = depositHelpers[:2] + futuresHelpers + swapHelpers[1:]
+    depoFuturesSwapCurve = ql.PiecewiseFlatForward(settlementDate, helpers, Actual360())
+
+    helpers = depositHelpers[:3] + fraHelpers + swapHelpers
+    depoFraSwapCurve = ql.PiecewiseFlatForward(settlementDate, helpers, Actual360())
