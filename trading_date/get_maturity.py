@@ -5,9 +5,10 @@
 """
 import calendar
 from datetime import datetime
+import QuantLib as ql
 
 
-def meetup_day(year, month, weekday, spec_weekday):
+def meetup_day(year, month, weekday, spec_weekday, type='datetime'):
     last_day = calendar.monthrange(year, month)[1]
     wkday = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5, 'Sunday': 6}
     schedule_day = wkday[weekday]
@@ -25,8 +26,10 @@ def meetup_day(year, month, weekday, spec_weekday):
             break
         if schedule_day == calendar.weekday(year, month, index):
             schedule_day = index
-
-    return datetime(year, month, schedule_day)
+    if type == 'datetime':
+        return datetime(year, month, schedule_day)
+    if type == 'quantlib':
+        return ql.Date(schedule_day, month, year)
 
 
 if __name__ == "__main__":
