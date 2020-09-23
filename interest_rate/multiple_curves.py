@@ -3,14 +3,10 @@
 :Author: Chankyu Choi
 :Date: 2020. 09. 17
 """
-from copy import deepcopy
-from datetime import datetime, timedelta
-
-import pandas as pd
-import QuantLib as ql
+from datetime import timedelta
 
 from trading_date.get_maturity import meetup_day
-from columns import *
+from interest_rate.quantlib_assistant_funcs import *
 
 # data preprocess
 LIBOR_TOTAL = pd.ExcelFile('data/interest_rate/LIBOR_TOTAL.xlsx')
@@ -63,7 +59,7 @@ FRA_6L_maturities = [(1, 7), (2, 8), (3, 9), (4, 10), (5, 11), (6, 12), (9, 15),
 
 month_pair = {'F': 1, 'G': 2, 'H': 3, 'J': 4, 'K': 5, 'M': 6, 'N': 7, 'Q': 8, 'U': 9, 'V': 10, 'X': 11, 'Z': 12}
 EURODOLLAR_maturities = dict(zip(eurodollar.columns[1:], pd.DataFrame(eurodollar.columns[1:]).apply(
-    lambda x: meetup_day(int('20' + x[0][-1] + x[0][-3]), month_pair[x[0][2]], "Wednesday", "3th", type='quantlib'),
+    lambda x: meetup_day(int('20' + x[0][-1] + x[0][-3]), month_pair[x[0][2]], "Wednesday", "3th", data_type='quantlib'),
     axis=1).dropna().values))
 
 swap_1L_tenors = [ql.Period(2, ql.Years), ql.Period(3, ql.Years), ql.Period(4, ql.Years), ql.Period(5, ql.Years),
@@ -79,7 +75,11 @@ settlementDays = 2
 
 # make curves every day
 for date in dates:
+    # setting time
     today = ql.Date(date.day, date.month, date.year)
+    ql.Settings.instance().evaluationDate = today
+
+    # select data
     LIBOR_product = LIBOR_products[LIBOR_products.index == date]
     LIBOR_product = LIBOR_product.dropna(axis='columns').T
 
@@ -103,14 +103,14 @@ for date in dates:
                          ql.ModifiedFollowing, False, ql.Actual360()) for mat in FRA_3L_maturities if mat[0] < 12]
     fra6L_Helpers = [
         ql.FraRateHelper(ql.QuoteHandle(_fra6L[mat]), mat[0], mat[1], settlementDays, calendar_country,
-                         ql.ModifiedFollowing, False, ql.Actual360()) for mat in FRA_6L_maturities]
+                         ql.ModifiedFollowing, False, ql.Actual360()) for mat in FRA_6L_maturities if mat[0] <= 12]
     # eurodollar
     _eurodollar = LIBOR_product.loc[EURODOLLAR_FUTURES]
     _eurodollar[MAT] = _eurodollar.apply(lambda x: EURODOLLAR_maturities[x.name], axis=1)
     _eurodollar[TOW] = _eurodollar.apply(
         lambda x: (datetime(x[MAT].year(), x[MAT].month(), x[MAT].dayOfMonth()) - date).days, axis=1)
     dayCounter = ql.Thirty360()
-    convexityAdjustment = ql.QuoteHandle(ql.SimpleQuote(0.01))
+    convexityAdjustment = ql.QuoteHandle(ql.SimpleQuote(0))
     lengthInMonths = 1
     eurodollar1L_Helpers = [
         ql.FuturesRateHelper(ql.QuoteHandle(ql.SimpleQuote(_eurodollar.loc[ric][date])),
@@ -122,7 +122,7 @@ for date in dates:
         ql.FuturesRateHelper(ql.QuoteHandle(ql.SimpleQuote(_eurodollar.loc[ric][date])),
                              _eurodollar.loc[ric][MAT], lengthInMonths, calendar_country, ql.ModifiedFollowing,
                              True, dayCounter, convexityAdjustment) for ric in _eurodollar.index if
-        ('ED' in ric) & (_eurodollar.loc[ric][TOW] >= 25) & (_eurodollar.loc[ric][TOW] <= 365)]
+        ('ED' in ric) & (_eurodollar.loc[ric][TOW] >= 25) & (_eurodollar.loc[ric][TOW] < 360 - 91)]
     # swap
     _swap = LIBOR_product.loc[SWAP_RATE].reset_index()
     _swap1L = dict(zip(swap_1L_tenors,
@@ -147,34 +147,47 @@ for date in dates:
         ql.SwapRateHelper(ql.QuoteHandle(_swap6L[tenor]), tenor, calendar_country, fixedLegFrequency,
                           fixedLegAdjustment, fixedLegDayCounter, ql.Euribor6M()) for tenor in swap_1L_tenors]
 
-    # term structure handles
-    discountTermStructure = ql.RelinkableYieldTermStructureHandle()
-    forecastTermStructure = ql.RelinkableYieldTermStructureHandle()
-
     # term-structure construction
     helpers_1L = depositHelpers[:5] + eurodollar1L_Helpers + swap1L_Helpers
     helpers_3L = depositHelpers[:5] + eurodollar3L_Helpers + swap3L_Helpers
     helpers_6L = depositHelpers[:5] + fra6L_Helpers + swap6L_Helpers
 
-    settlementDate = ql.Date(date.day, date.month, date.year)
     day_count = ql.Actual360()
     depoFuturesSwapCurve_1L = ql.PiecewiseCubicZero(0, calendar_country, helpers_1L, day_count)  # dc 확인하기
     depoFuturesSwapCurve_1L.enableExtrapolation()
     depoFuturesSwapCurve_3L = ql.PiecewiseCubicZero(0, calendar_country, helpers_3L, day_count)  # dc 확인하기
     depoFuturesSwapCurve_3L.enableExtrapolation()
-    depoFuturesSwapCurve_6L = ql.PiecewiseCubicZero(0, calendar_country, helpers_6L, day_count)  # dc 확인하기
-    depoFuturesSwapCurve_6L.enableExtrapolation()
+    depoFRASwapCurve_6L = ql.PiecewiseCubicZero(0, calendar_country, helpers_6L, day_count)  # dc 확인하기
+    depoFRASwapCurve_6L.enableExtrapolation()
 
-    # The spot cpn is obtined from yieldcurve object using the zeroRate method.
-    for curve in [depoFuturesSwapCurve_1L, depoFuturesSwapCurve_3L, depoFuturesSwapCurve_6L]:
-        spots = []
-        tenors = []
-        for d in curve.dates():
-            yrs = day_count.yearFraction(settlementDate, d)
-            compounding = ql.Compounded
-            freq = ql.Annual
-            zero_rate = curve.zeroRate(yrs, compounding, freq)
-            tenors.append(yrs)
-            eq_rate = zero_rate.equivalentRate(day_count, compounding, freq, settlementDate, d).rate()
-            spots.append(100 * eq_rate)
-    ZC1L = pd.DataFrame(list(zip(tenors, spots)), columns=["Maturities", "Curve"], index=['']*len(tenors))
+    # to DataFame
+    ZC1L = curve_to_DataFrame(depoFuturesSwapCurve_1L, today, curve_type='zero_curve', compound=ql.Continuous,
+                              daycounter=ql.Actual360(), under_name='1L')
+    ZC3L = curve_to_DataFrame(depoFuturesSwapCurve_3L, today, curve_type='zero_curve', compound=ql.Continuous,
+                              daycounter=ql.Actual360(), under_name='3L')
+    ZC6L = curve_to_DataFrame(depoFRASwapCurve_6L, today, curve_type='zero_curve', compound=ql.Continuous,
+                              daycounter=ql.Actual360(), under_name='6L')
+    ZC = pd.concat([ZC1L, ZC3L['3L_zero_rate'], ZC6L['6L_zero_rate']], axis=1).set_index(DATE)
+    # DC1L = curve_to_DataFrame(depoFuturesSwapCurve_1L, today, curve_type='discount_curve', compound=ql.Continuous,
+    #                           under_name='1L')
+    # DC3L = curve_to_DataFrame(depoFuturesSwapCurve_3L, today, curve_type='discount_curve', compound=ql.Continuous,
+    #                           under_name='3L')
+    # DC6L = curve_to_DataFrame(depoFRASwapCurve_6L, today, curve_type='discount_curve', compound=ql.Continuous,
+    #                           under_name='6L')
+    # DC = pd.concat([DC1L, DC3L['3L_discount'], DC6L['6L_discount']], axis=1).set_index(DATE)
+    FC1L = curve_to_DataFrame(depoFuturesSwapCurve_1L, today, curve_type='forward_curve', compound=ql.Continuous,
+                              daycounter=ql.Actual360(), forward_tenor=30, under_name='1L')
+    FC3L = curve_to_DataFrame(depoFuturesSwapCurve_3L, today, curve_type='forward_curve', compound=ql.Continuous,
+                              daycounter=ql.Actual360(), forward_tenor=91, under_name='3L')
+    FC6L = curve_to_DataFrame(depoFRASwapCurve_6L, today, curve_type='forward_curve', compound=ql.Continuous,
+                              daycounter=ql.Actual360(), forward_tenor=180, under_name='6L')
+    FC = pd.concat([FC1L, FC3L['3L_forward_rate'], FC6L['6L_forward_rate']], axis=1).set_index(DATE)
+
+    # plot curves
+    plot_curve(ZC, start_date=today, end_date=today + ql.Period(3, ql.Years))
+    # plot_curve(DC, start_date=today, end_date=today + ql.Period(3, ql.Years))
+    plot_curve(FC, start_date=today, end_date=today + ql.Period(3, ql.Years))
+
+    plot_curve(ZC, start_date=today, end_date=ZC.index[-1])
+    # plot_curve(DC, start_date=today, end_date=ZC.index[-1])
+    plot_curve(FC, start_date=today, end_date=ZC.index[-1])
