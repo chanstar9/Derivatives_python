@@ -8,7 +8,7 @@ from datetime import datetime
 import QuantLib as ql
 
 
-def meetup_day(year, month, weekday, spec_weekday, type='datetime'):
+def meetup_day(year, month, weekday, spec_weekday, data_type='datetime'):
     last_day = calendar.monthrange(year, month)[1]
     wkday = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5, 'Sunday': 6}
     schedule_day = wkday[weekday]
@@ -26,9 +26,9 @@ def meetup_day(year, month, weekday, spec_weekday, type='datetime'):
             break
         if schedule_day == calendar.weekday(year, month, index):
             schedule_day = index
-    if type == 'datetime':
+    if data_type == 'datetime':
         return datetime(year, month, schedule_day)
-    if type == 'quantlib':
+    if data_type == 'quantlib':
         return ql.Date(schedule_day, month, year)
 
 

@@ -59,7 +59,7 @@ FRA_6L_maturities = [(1, 7), (2, 8), (3, 9), (4, 10), (5, 11), (6, 12), (9, 15),
 
 month_pair = {'F': 1, 'G': 2, 'H': 3, 'J': 4, 'K': 5, 'M': 6, 'N': 7, 'Q': 8, 'U': 9, 'V': 10, 'X': 11, 'Z': 12}
 EURODOLLAR_maturities = dict(zip(eurodollar.columns[1:], pd.DataFrame(eurodollar.columns[1:]).apply(
-    lambda x: meetup_day(int('20' + x[0][-1] + x[0][-3]), month_pair[x[0][2]], "Wednesday", "3th", type='quantlib'),
+    lambda x: meetup_day(int('20' + x[0][-1] + x[0][-3]), month_pair[x[0][2]], "Wednesday", "3th", data_type='quantlib'),
     axis=1).dropna().values))
 
 swap_1L_tenors = [ql.Period(2, ql.Years), ql.Period(3, ql.Years), ql.Period(4, ql.Years), ql.Period(5, ql.Years),

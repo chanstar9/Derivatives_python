@@ -16,7 +16,7 @@ def SetVar(input_s, input_Tau, input_r, input_q):
     q = input_q
 
 
-def SABR_vol(K, tow, alp, bet, rho, nu):
+def SABR_vol(K, alp, bet, rho, nu):
     """
     :param K:
     :param tow:
