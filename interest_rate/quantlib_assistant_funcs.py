@@ -42,9 +42,7 @@ def curve_to_DataFrame(curves, today, curve_type, compound, daycounter=None, for
         ValueError("check curve type")
 
 
-def plot_curve(curves, start_date: ql.Date, end_date: ql.Date, ylim: list = None):
-    if ylim is None:
-        ylim = [-0.01, 0.07]
+def plot_curve(curves, start_date: ql.Date, end_date: ql.Date):
     _dates = [d for d in curves.index if (start_date <= d) & (d <= end_date)]
     fig, ax = plt.subplots()
     plt.rc('lines', linewidth=3)
@@ -53,7 +51,7 @@ def plot_curve(curves, start_date: ql.Date, end_date: ql.Date, ylim: list = None
     ax.set_xlim(to_datetime(min(_dates)), to_datetime(max(_dates)))
     ax.xaxis.set_major_locator(MonthLocator(bymonth=[12]))
     ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
-    ax.set_ylim(ylim[0], ylim[1])
+    ax.set_ylim(curves.values.min() - 0.005, curves.values.max() + 0.005)
     ax.autoscale_view()
     ax.xaxis.grid(True, 'major')
     ax.xaxis.grid(False, 'minor')
