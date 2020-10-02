@@ -89,6 +89,7 @@ for it in range(len(expirySet)):
     #    +dataC(minIdx,1)*exp(-(r-q)*Tau); % No-arbitrage condition(P-C parity)
 
     # find a implied vol (using Newton method)
+    sc1['IMVOL'] = sc1.apply(lambda x: bs.IV(mV0, x['STRIKE'], x['TTM'], cc, 0, x['PRICE'], 1), axis=1)
     for i in sc1.index:
         imp_vol = bs.IV(mV0, sc1.loc[i]['STRIKE'], sc1.loc[i]['TTM'], cc, 0, sc1.loc[i]['PRICE'], 1)
         sc1.loc[i]['IMVOL'] = imp_vol
