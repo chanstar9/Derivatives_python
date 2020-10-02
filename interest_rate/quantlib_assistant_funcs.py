@@ -51,7 +51,8 @@ def plot_curve(curves, start_date: ql.Date, end_date: ql.Date):
     ax.set_xlim(to_datetime(min(_dates)), to_datetime(max(_dates)))
     ax.xaxis.set_major_locator(MonthLocator(bymonth=[12]))
     ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
-    ax.set_ylim(curves.values.min() - 0.005, curves.values.max() + 0.005)
+    ax.set_ylim(curves[curves.index <= end_date].values.min() - 0.005,
+                curves[curves.index <= end_date].values.max() + 0.005)
     ax.autoscale_view()
     ax.xaxis.grid(True, 'major')
     ax.xaxis.grid(False, 'minor')

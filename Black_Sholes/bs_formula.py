@@ -46,11 +46,9 @@ def bs_rho(s, k, tow, r, q, vol, position, cp=1):
 
 
 def IV(s, k, tow, r, q, mkt_price, cp=1):
+    global price
     vol = 0.15
-    price = bs_price(s, k, tow, r, q, vol, cp)
-    while ():
-        diff = price - mkt_price
-        if diff < 1.0e-6:
-            break
-        vol = vol - diff / bs_vega(s, k, tow, r, q, 1, vol)
+    while abs(price - mkt_price) >= 1.0e-6:
+        price = bs_price(s, k, tow, r, q, vol, cp)
+        vol = vol - (price - mkt_price) / bs_vega(s, k, tow, r, q, vol, 1)
     return vol
