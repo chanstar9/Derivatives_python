@@ -5,6 +5,7 @@
 """
 import QuantLib as ql
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.integrate import cumtrapz
 
@@ -37,12 +38,11 @@ def generate_paths(num_paths, timestep):
         time = [path.time(j) for j in range(len(path))]
         value = [path[j] for j in range(len(path))]
         arr[i, :] = np.array(value)
-    return np.array(time), arr
+    return pd.DataFrame(arr.T, index=time)
 
 
 num_paths = 128
-time, paths = generate_paths(num_paths, timestep)
-for i in range(num_paths):
-    plt.plot(time, paths[i, :], lw=0.8, alpha=0.6)
+generate_paths(num_paths, timestep).plot(lw=0.8, alpha=0.6)
 plt.title("Hull-White Short Rate Simulation")
 plt.show()
+
