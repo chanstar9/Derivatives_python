@@ -45,4 +45,3 @@ num_paths = 128
 generate_paths(num_paths, timestep).plot(lw=0.8, alpha=0.6)
 plt.title("Hull-White Short Rate Simulation")
 plt.show()
-
