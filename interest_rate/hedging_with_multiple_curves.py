@@ -10,7 +10,7 @@ from interest_rate.generate_multiple_curves import *
 
 # data preprocess
 LIBOR_TOTAL = pd.ExcelFile('data/interest_rate/LIBOR_TOTAL.xlsx')
-ois = LIBOR_TOTAL.parse(OIS).set_index('Timestamp')
+ois = LIBOR_TOTAL.parse(OIS).set_index('Timestamp') * 0.01
 deposits = LIBOR_TOTAL.parse(DEPOSITS)
 fra = LIBOR_TOTAL.parse(FRA)
 eurodollar = LIBOR_TOTAL.parse(EURODOLLAR_FUTURES)
@@ -55,7 +55,6 @@ OIS_tenors = [ql.Period(1, ql.Months), ql.Period(2, ql.Months), ql.Period(3, ql.
               ql.Period(7, ql.Years), ql.Period(8, ql.Years), ql.Period(9, ql.Years), ql.Period(10, ql.Years),
               ql.Period(12, ql.Years), ql.Period(15, ql.Years), ql.Period(20, ql.Years), ql.Period(25, ql.Years),
               ql.Period(30, ql.Years), ql.Period(40, ql.Years)]
-
 deposit_maturities = [ql.Period(1, ql.Days), ql.Period(3, ql.Days), ql.Period(7, ql.Days),
                       ql.Period(14, ql.Days), ql.Period(21, ql.Days), ql.Period(31, ql.Days), ql.Period(61, ql.Days),
                       ql.Period(91, ql.Days), ql.Period(123, ql.Days), ql.Period(153, ql.Days), ql.Period(181, ql.Days),
@@ -91,31 +90,34 @@ for date in dates:
     ql.Settings.instance().evaluationDate = today
 
     # select data
-    OIS_rate = ois[ois.index == date]
+    OIS_rate = ois[ois.index == date].T
     LIBOR_product = LIBOR_products[LIBOR_products.index == date]
     LIBOR_product = LIBOR_product.dropna(axis='columns').T
 
     # get multiple curves
-
+    D_curve = discounting_curve(OIS_rate, date, calendar_country, settlementDays, OIS_tenors)
     depoFuturesSwapCurve_1L, depoFuturesSwapCurve_3L, depoFRASwapCurve_6L = \
         get_multiple_curves(LIBOR_product, date, calendar_country, settlementDays, deposit_maturities,
                             FRA_6L_maturities, EURODOLLAR_maturities, swap_1L_tenors, swap_3L_tenors)
 
     # to DataFame
+    OIS_curve = curve_to_DataFrame(D_curve, today, curve_type='zero_curve', compound=ql.Continuous,
+                                   daycounter=ql.Actual360(), under_name='OIS')
     # ZC1L = curve_to_DataFrame(depoFuturesSwapCurve_1L, today, curve_type='zero_curve', compound=ql.Continuous,
     #                           daycounter=ql.Actual360(), under_name='1L')
     ZC3L = curve_to_DataFrame(depoFuturesSwapCurve_3L, today, curve_type='zero_curve', compound=ql.Continuous,
                               daycounter=ql.Actual360(), under_name='3L')
     ZC6L = curve_to_DataFrame(depoFRASwapCurve_6L, today, curve_type='zero_curve', compound=ql.Continuous,
                               daycounter=ql.Actual360(), under_name='6L')
-    ZC = pd.concat([ZC3L, ZC6L['6L_zero_rate']], axis=1).set_index(DATE)
-    # DC1L = curve_to_DataFrame(depoFuturesSwapCurve_1L, today, curve_type='discount_curve', compound=ql.Continuous,
-    #                           under_name='1L')
-    # DC3L = curve_to_DataFrame(depoFuturesSwapCurve_3L, today, curve_type='discount_curve', compound=ql.Continuous,
-    #                           under_name='3L')
-    # DC6L = curve_to_DataFrame(depoFRASwapCurve_6L, today, curve_type='discount_curve', compound=ql.Continuous,
-    #                           under_name='6L')
-    # DC = pd.concat([DC1L, DC3L['3L_discount'], DC6L['6L_discount']], axis=1).set_index(DATE)
+    ZC = pd.concat([OIS_curve, ZC3L['3L_zero_rate'], ZC6L['6L_zero_rate']], axis=1).set_index(DATE)
+    OIS_DISC = curve_to_DataFrame(D_curve, today, curve_type='discount_curve', compound=ql.Continuous, under_name='OIS')
+    DC1L = curve_to_DataFrame(depoFuturesSwapCurve_1L, today, curve_type='discount_curve', compound=ql.Continuous,
+                              under_name='1L')
+    DC3L = curve_to_DataFrame(depoFuturesSwapCurve_3L, today, curve_type='discount_curve', compound=ql.Continuous,
+                              under_name='3L')
+    DC6L = curve_to_DataFrame(depoFRASwapCurve_6L, today, curve_type='discount_curve', compound=ql.Continuous,
+                              under_name='6L')
+    DC = pd.concat([DC1L, DC3L['3L_discount'], DC6L['6L_discount']], axis=1).set_index(DATE)
     FC1L = curve_to_DataFrame(depoFuturesSwapCurve_1L, today, curve_type='forward_curve', compound=ql.Continuous,
                               daycounter=ql.Actual360(), forward_tenor=30, under_name='1L')
     FC3L = curve_to_DataFrame(depoFuturesSwapCurve_3L, today, curve_type='forward_curve', compound=ql.Continuous,
@@ -133,5 +135,8 @@ for date in dates:
     # plot_curve(DC, start_date=today, end_date=ZC.index[-1])
     plot_curve(FC, start_date=today, end_date=ZC.index[-1])
 
-    # generate HW 1F
-    term_structure_1L = ql.YieldTermStructureHandle(depoFuturesSwapCurve_1L)
+    # save
+    tmp = [True if i in depoFuturesSwapCurve_3L.dates() else False for i in DC3L['date'].values]
+    aa = DC3L[tmp]
+    aa['date'] = aa['date'].apply(lambda x: to_datetime(x))
+    aa.to_csv('data/{}_3L.csv'.format(date))

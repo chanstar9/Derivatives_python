@@ -3,7 +3,21 @@
 :Author: Chankyu Choi
 :Date: 2020. 09. 17
 """
+from copy import deepcopy
 from interest_rate.quantlib_assistant_funcs import *
+
+
+def discounting_curve(OIS_rate, date, calendar_country, settlementDays, OIS_tenors):
+    _ois = deepcopy(OIS_rate)
+    _ois.index = OIS_tenors
+    _ois[QUOTE] = _ois.apply(lambda x: ql.SimpleQuote(x[date]), axis=1)
+    FedFunds = ql.FedFunds()
+    ois_helper = [ql.OISRateHelper(settlementDays, tenor, ql.QuoteHandle(_ois.loc[tenor][QUOTE]), FedFunds) for tenor in
+                  OIS_tenors]
+    day_count = ql.Actual360()
+    D_curve = ql.PiecewiseCubicZero(0, calendar_country, ois_helper, day_count)  # dc 확인하기
+    D_curve.enableExtrapolation()
+    return D_curve
 
 
 def get_multiple_curves(products, date, calendar_country, settlementDays, deposit_maturities, FRA_6L_maturities,
